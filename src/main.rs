@@ -67,7 +67,7 @@ async fn main() -> io::Result<()> {
     let key_path = env::var("TLS_PRIVATE_KEY_PATH").expect("$TLS_PRIVATE_KEY_PATH is not set");
     let cert_path = env::var("TLS_CERTIFICATE_PATH").expect("$TLS_CERTIFICATE_PATH is not set");
 
-    let tls_config: rustls::ServerConfig = load_rustls_config(key_path, cert_path);
+    let tls_config: rustls::ServerConfig = load_rustls_config(cert_path, key_path);
     HttpServer::new(move || {
         App::new()
             .app_data(web::Data::new(redis.clone()))
@@ -101,7 +101,12 @@ fn load_rustls_config(cert_path: String, key_path: String) -> rustls::ServerConf
         .with_no_client_auth();
 
     // load TLS key/cert files
+    eprintln!("cert_path: {:?}", cert_path);
+    eprintln!("key_path: {:?}", key_path);
+
     let cert_file = &mut BufReader::new(File::open(cert_path).unwrap());
+    eprintln!("cert_file: {:?}", cert_file);
+
     let key_file = &mut BufReader::new(File::open(key_path).unwrap());
 
     // convert files to key/cert objects
