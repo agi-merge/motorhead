@@ -6,7 +6,7 @@ use std::io;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 use rustls::{Certificate, PrivateKey};
-use rustls_pemfile::{certs, pkcs8_private_keys};
+use rustls_pemfile::{certs, rsa_private_keys};
 mod healthcheck;
 mod long_term_memory;
 mod memory;
@@ -110,7 +110,7 @@ fn load_rustls_config(cert_path: String, key_path: String) -> rustls::ServerConf
         .into_iter()
         .map(Certificate)
         .collect();
-    let mut keys: Vec<PrivateKey> = pkcs8_private_keys(key_file)
+    let mut keys: Vec<PrivateKey> = rsa_private_keys(key_file)
         .unwrap()
         .into_iter()
         .map(PrivateKey)
