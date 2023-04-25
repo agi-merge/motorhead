@@ -8,8 +8,9 @@ authors = ["Sergio Prada <metal@getmetal.io>"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-actix-web = { version = "4.3", features = ["openssl"] }
-openssl = { version = "0.10" }
+actix-web = { version = "4.3", features = ["rustls"] }
+rustls = "0.20.8"
+rustls-pemfile = "1"
 async-openai = "0.10.1"
 byteorder = "1.4.3"
 env_logger = "0.10"

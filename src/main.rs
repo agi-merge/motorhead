@@ -1,11 +1,12 @@
 use actix_web::{error, middleware, web, App, HttpResponse, HttpServer};
 use std::collections::HashMap;
+use std::{fs::File, io::BufReader};
 use std::env;
 use std::io;
 use std::sync::Arc;
 use tokio::sync::Mutex;
-use openssl::ssl::{SslAcceptor, SslFiletype, SslMethod};
-
+use rustls::{Certificate, PrivateKey};
+use rustls_pemfile::{certs, pkcs8_private_keys};
 mod healthcheck;
 mod long_term_memory;
 mod memory;
@@ -45,9 +46,6 @@ async fn main() -> io::Result<()> {
         });
     }
 
-    let privkey_path = env::var("TLS_PRIVATE_KEY_PATH").expect("$TLS_PRIVATE_KEY_PATH is not set");
-    let cert_path = env::var("TLS_CERTIFICATE_PATH").expect("$TLS_CERTIFICATE_PATH is not set");
-
     // /etc/letsencrypt/live/motorhead.waggledance.ai/privkey.pem
     let port = env::var("MOTORHEAD_PORT")
         .ok()
@@ -66,14 +64,7 @@ async fn main() -> io::Result<()> {
         openai_client,
         long_term_memory,
     });
-
-    let mut ssl_builder = SslAcceptor::mozilla_modern(SslMethod::tls()).unwrap();
-    ssl_builder
-        .set_private_key_file(privkey_path, SslFiletype::PEM)
-        .unwrap();
-    ssl_builder.set_certificate_chain_file(cert_path).unwrap();
-
-
+    let tls_config: rustls::ServerConfig = load_rustls_config();
     HttpServer::new(move || {
         App::new()
             .app_data(web::Data::new(redis.clone()))
@@ -94,7 +85,39 @@ async fn main() -> io::Result<()> {
                 .into()
             }))
     })
-    .bind_openssl(format!("0.0.0.0:{}", port), ssl_builder)?
+    .bind_rustls(format!("0.0.0.0:{}", port), tls_config)?
     .run()
     .await
+}
+
+
+fn load_rustls_config() -> rustls::ServerConfig {
+    // init server config builder with safe defaults
+    let config = rustls::ServerConfig::builder()
+        .with_safe_defaults()
+        .with_no_client_auth();
+
+    // load TLS key/cert files
+    let cert_file = &mut BufReader::new(File::open("cert.pem").unwrap());
+    let key_file = &mut BufReader::new(File::open("key.pem").unwrap());
+
+    // convert files to key/cert objects
+    let cert_chain = certs(cert_file)
+        .unwrap()
+        .into_iter()
+        .map(Certificate)
+        .collect();
+    let mut keys: Vec<PrivateKey> = pkcs8_private_keys(key_file)
+        .unwrap()
+        .into_iter()
+        .map(PrivateKey)
+        .collect();
+
+    // exit if no keys could be parsed
+    if keys.is_empty() {
+        eprintln!("Could not locate PKCS 8 private keys.");
+        std::process::exit(1);
+    }
+
+    config.with_single_cert(cert_chain, keys.remove(0)).unwrap()
 }
