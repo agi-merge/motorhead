@@ -64,7 +64,10 @@ async fn main() -> io::Result<()> {
         openai_client,
         long_term_memory,
     });
-    let tls_config: rustls::ServerConfig = load_rustls_config();
+    let key_path = env::var("TLS_PRIVATE_KEY_PATH").expect("$TLS_PRIVATE_KEY_PATH is not set");
+    let cert_path = env::var("TLS_CERTIFICATE_PATH").expect("$TLS_CERTIFICATE_PATH is not set");
+
+    let tls_config: rustls::ServerConfig = load_rustls_config(key_path, cert_path);
     HttpServer::new(move || {
         App::new()
             .app_data(web::Data::new(redis.clone()))
@@ -91,15 +94,15 @@ async fn main() -> io::Result<()> {
 }
 
 
-fn load_rustls_config() -> rustls::ServerConfig {
+fn load_rustls_config(cert_path: String, key_path: String) -> rustls::ServerConfig {
     // init server config builder with safe defaults
     let config = rustls::ServerConfig::builder()
         .with_safe_defaults()
         .with_no_client_auth();
 
     // load TLS key/cert files
-    let cert_file = &mut BufReader::new(File::open("cert.pem").unwrap());
-    let key_file = &mut BufReader::new(File::open("key.pem").unwrap());
+    let cert_file = &mut BufReader::new(File::open(cert_path).unwrap());
+    let key_file = &mut BufReader::new(File::open(key_path).unwrap());
 
     // convert files to key/cert objects
     let cert_chain = certs(cert_file)
