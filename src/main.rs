@@ -67,7 +67,7 @@ async fn main() -> io::Result<()> {
         long_term_memory,
     });
 
-    let mut ssl_builder = SslAcceptor::mozilla_intermediate(SslMethod::tls()).unwrap();
+    let mut ssl_builder = SslAcceptor::mozilla_modern(SslMethod::tls()).unwrap();
     ssl_builder
         .set_private_key_file(privkey_path, SslFiletype::PEM)
         .unwrap();
