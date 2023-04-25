@@ -50,7 +50,7 @@ async fn main() -> io::Result<()> {
     let port = env::var("MOTORHEAD_PORT")
         .ok()
         .and_then(|s| s.parse::<u16>().ok())
-        .unwrap_or_else(|| 8000);
+        .unwrap_or_else(|| 8080);
 
     let window_size = env::var("MOTORHEAD_MAX_WINDOW_SIZE")
         .ok()
@@ -95,17 +95,10 @@ async fn main() -> io::Result<()> {
 
 
 fn load_rustls_config(cert_path: String, key_path: String) -> rustls::ServerConfig {
-    // init server config builder with safe defaults
-    let config = rustls::ServerConfig::builder()
-        .with_safe_defaults()
-        .with_no_client_auth();
 
     // load TLS key/cert files
-    eprintln!("cert_path: {:?}", cert_path);
-    eprintln!("key_path: {:?}", key_path);
 
     let cert_file = &mut BufReader::new(File::open(cert_path).unwrap());
-    eprintln!("cert_file: {:?}", cert_file);
 
     let key_file = &mut BufReader::new(File::open(key_path).unwrap());
 
@@ -120,7 +113,6 @@ fn load_rustls_config(cert_path: String, key_path: String) -> rustls::ServerConf
         .into_iter()
         .map(PrivateKey)
         .collect();
-    eprintln!("cert_chain: {:?}", cert_chain);
     // exit if no keys could be parsed
     if keys.is_empty() {
 
@@ -138,5 +130,16 @@ fn load_rustls_config(cert_path: String, key_path: String) -> rustls::ServerConf
         }
     }
 
-    config.with_single_cert(cert_chain, keys.remove(0)).unwrap()
+    let private_key = keys.remove(0);
+    // init server config builder with safe defaults
+
+    let config = rustls::ServerConfig::builder()
+        .with_safe_default_cipher_suites()
+         .with_safe_default_kx_groups()
+         .with_safe_default_protocol_versions()
+         .unwrap()
+         .with_no_client_auth();
+
+
+    config.with_single_cert(cert_chain, private_key).unwrap()
 }
