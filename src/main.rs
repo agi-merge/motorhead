@@ -4,6 +4,7 @@ use std::env;
 use std::io;
 use std::sync::Arc;
 use tokio::sync::Mutex;
+use openssl::ssl::{SslAcceptor, SslFiletype, SslMethod};
 
 mod healthcheck;
 mod long_term_memory;
@@ -44,6 +45,10 @@ async fn main() -> io::Result<()> {
         });
     }
 
+    let privkey_path = env::var("TLS_PRIVATE_KEY_PATH").expect("$TLS_PRIVATE_KEY_PATH is not set");
+    let cert_path = env::var("TLS_CERTIFICATE_PATH").expect("$TLS_CERTIFICATE_PATH is not set");
+
+    // /etc/letsencrypt/live/motorhead.waggledance.ai/privkey.pem
     let port = env::var("MOTORHEAD_PORT")
         .ok()
         .and_then(|s| s.parse::<u16>().ok())
@@ -61,6 +66,13 @@ async fn main() -> io::Result<()> {
         openai_client,
         long_term_memory,
     });
+
+    let mut ssl_builder = SslAcceptor::mozilla_intermediate(SslMethod::tls()).unwrap();
+    ssl_builder
+        .set_private_key_file(privkey_path, SslFiletype::PEM)
+        .unwrap();
+    ssl_builder.set_certificate_chain_file(cert_path).unwrap();
+
 
     HttpServer::new(move || {
         App::new()
@@ -82,7 +94,7 @@ async fn main() -> io::Result<()> {
                 .into()
             }))
     })
-    .bind(("0.0.0.0", port))?
+    .bind_openssl(format!("0.0.0.0:{}", port), ssl_builder)?
     .run()
     .await
 }
